@@ -49,3 +49,26 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+
+  MealPlannerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/meal_planner/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Policies:
+        - AmazonBedrockFullAccess
+      Environment:
+        Variables:
+          MODEL_ID: anthropic.claude-sonnet-4-20250514-v1:0
+
+Outputs:
+  MealPlannerFunctionName:
+    Description: "Meal Planner Lambda Function Name"
+    Value: !Ref MealPlannerFunction
+  MealPlannerFunctionArn:
+    Description: "Meal Planner Lambda Function ARN"
+    Value: !GetAtt MealPlannerFunction.Arn
+

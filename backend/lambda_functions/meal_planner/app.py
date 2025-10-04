@@ -8,18 +8,26 @@ bedrock_runtime = boto3.client(service_name="bedrock-runtime")
 # Get the model ID from environment variables
 MODEL_ID = os.environ.get("MODEL_ID", "anthropic.claude-sonnet-4-20250514-v1:0")
 
-def generate_recipe(ingredients):
-    """Generates a recipe using Amazon Bedrock."""
+def generate_recipe(ingredients, preferences):
+    """Generates multiple recipes using Amazon Bedrock considering the dietary preferences."""
+
+    # Construct the dietary preferences
+    if preferences:
+        pref_string = ", ".join(preferences)
+        prompt_part_preferences = f"The user's dietary preferences are: {pref_string}."
+    else:
+        prompt_part_preferences = "The user has no specific dietary preferences."
 
     # Create a clear and structured prompt for the model
-    prompt = f"""You are an expert chef. Based on the following ingredients, create a single, simple recipe.
-    The user has: {', '.join(ingredients)}. Please provide the recipe in a valid JSON format with the following keys:
-    "recipe_name" (string), "ingredients" (a list of maps, each with "name" and "quantity" keys), and "instructions" (a list of strings)."""
+    prompt = f"""You are an expert chef. Based on the following ingredients and dietary preferences, create a list of 2 simple recipes.
+    The user has: {', '.join(ingredients)}. {prompt_part_preferences} Please provide the recipes in a valid JSON format with a single key
+    \"recipes\", which is a list of recipe objects. Each recipe object should have the following keys:
+    \"recipe_name\" (string), \"ingredients\" (a list of maps, each with \"name\" and \"quantity\" keys), and \"instructions\" (a list of strings)."""
 
     # Define the request body for the Bedrock API
     request_body = {
         "anthropic_version": "",
-        "max_tokens": 2048,
+        "max_tokens": 4096,
         "messages": [
             {
                 "role": "user",
@@ -59,6 +67,7 @@ def lambda_handler(event, context):
         # The structure: {"ingredients": ["chicken", "rice", "spinach"]}
         body = json.loads(event.get("body", "{}"))
         ingredients = body.get("ingredients", [])
+        preferences = body.get("dietary_preferences", [])
 
         if not ingredients:
             return {
@@ -67,14 +76,14 @@ def lambda_handler(event, context):
             }
 
         # Generate the recipe
-        recipe = generate_recipe(ingredients)
+        recipes = generate_recipe(ingredients, preferences)
 
         return {
             "statusCode": 200,
             "headers": {
                 "Content-Type": "application/json"
             },
-            "body": json.dumps(recipe)
+            "body": json.dumps(recipes)
         }
 
     except Exception as e:
