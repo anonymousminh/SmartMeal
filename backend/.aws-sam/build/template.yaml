@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'SmartMeal AI Meal & Grocery Planner
+
+  '
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 512
+Resources:
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SmartMeal-Users
+      AttributeDefinitions:
+      - AttributeName: UserID
+        AttributeType: S
+      KeySchema:
+      - AttributeName: UserID
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  RecipesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SmartMeal-Recipes
+      AttributeDefinitions:
+      - AttributeName: RecipeID
+        AttributeType: S
+      KeySchema:
+      - AttributeName: RecipeID
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  PantryItemsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SmartMeal-PantryItems
+      AttributeDefinitions:
+      - AttributeName: UserID
+        AttributeType: S
+      - AttributeName: ItemName
+        AttributeType: S
+      KeySchema:
+      - AttributeName: UserID
+        KeyType: HASH
+      - AttributeName: ItemName
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  MealPlannerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: MealPlannerFunction
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+      - x86_64
+      Policies:
+      - AmazonBedrockFullAccess
+      Environment:
+        Variables:
+          MODEL_ID: anthropic.claude-3-haiku-20240307-v1:0
+    Metadata:
+      SamResourceId: MealPlannerFunction
+  GroceryListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: GroceryListFunction
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+      - x86_64
+    Metadata:
+      SamResourceId: GroceryListFunction
+Outputs:
+  MealPlannerFunctionName:
+    Description: Meal Planner Lambda Function Name
+    Value:
+      Ref: MealPlannerFunction
+  MealPlannerFunctionArn:
+    Description: Meal Planner Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - MealPlannerFunction
+      - Arn
+  GroceryListFunctionName:
+    Description: Grocery List Lambda Function Name
+    Value:
+      Ref: GroceryListFunction
+  GroceryListFunctionArn:
+    Description: Grocery List Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - GroceryListFunction
+      - Arn
