@@ -69,6 +69,15 @@ Resources:
         Variables:
           MODEL_ID: anthropic.claude-3-haiku-20240307-v1:0
 
+  GroceryListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/grocery_list/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+
 
 
 Outputs:
@@ -78,4 +87,11 @@ Outputs:
   MealPlannerFunctionArn:
     Description: "Meal Planner Lambda Function ARN"
     Value: !GetAtt MealPlannerFunction.Arn
+  GroceryListFunctionName:
+    Description: "Grocery List Lambda Function Name"
+    Value: !Ref GroceryListFunction
+  GroceryListFunctionArn:
+    Description: "Grocery List Lambda Function ARN"
+    Value: !GetAtt GroceryListFunction.Arn
+
 
