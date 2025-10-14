@@ -1,65 +1,118 @@
 import json
-
-def generate_consolidated_grocery_list(meal_plan, pantry_ingredients):
-    """Generates a single, consolidated grocery list from a meal plan."""
-    
-    # Normalize pantry ingredients for easy lookup (lowercase, set)
-    pantry_set = {item.lower() for item in pantry_ingredients}
-    
-    # Use a dictionary to consolidate ingredients and their quantities
-    consolidated_list = {}
-    
-    # Iterate over each recipe in the meal plan
-    for recipe in meal_plan:
-        recipe_ingredients = recipe.get("ingredients", [])
-        for ingredient in recipe_ingredients:
-            ingredient_name = ingredient["name"].lower()
-            
-            # Check if the ingredient is in the pantry
-            if ingredient_name not in pantry_set:
-                quantity = ingredient.get("quantity", "some")
-                
-                # If ingredient is already in our list, append the quantity
-                if ingredient_name in consolidated_list:
-                    consolidated_list[ingredient_name]["quantity"] += f", {quantity}"
-                # Otherwise, add it as a new entry
-                else:
-                    consolidated_list[ingredient_name] = {
-                        "name": ingredient["name"], # Keep original casing for display
-                        "quantity": quantity
-                    }
-    
-    # Convert the dictionary back to a list for the final output
-    return list(consolidated_list.values())
+import boto3
+from botocore.exceptions import ClientError
 
 def lambda_handler(event, context):
-    """The main Lambda handler function."""
+    """Generate grocery list from meal plan and pantry ingredients."""
+    
+    # Handle CORS preflight requests
+    if event.get('httpMethod') == 'OPTIONS':
+        return {
+            "statusCode": 200,
+            "headers": get_cors_headers(),
+            "body": json.dumps({"message": "CORS preflight successful"})
+        }
     
     try:
-        # Extract meal plan and pantry ingredients from the event body
-        body = json.loads(event.get("body", "{}"))
-        meal_plan = body.get("meal_plan", [])
-        pantry_ingredients = body.get("pantry_ingredients", [])
+        print("📥 Received event:", json.dumps(event, indent=2))
         
-        if not meal_plan:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "A valid meal_plan array must be provided."})
-            }
+        # Parse the request body
+        if 'body' in event:
+            body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+        else:
+            body = event
+            
+        print("📝 Parsed body:", json.dumps(body, indent=2))
         
-        # Generate the consolidated grocery list
-        grocery_list = generate_consolidated_grocery_list(meal_plan, pantry_ingredients)
+        # Extract meal plan and pantry ingredients
+        meal_plan = body.get('meal_plan', [])
+        pantry_ingredients = body.get('pantry_ingredients', [])
+        
+        print(f"🍽️ Meal plan: {meal_plan}")
+        print(f"🥫 Pantry ingredients: {pantry_ingredients}")
+        
+        # Validate inputs
+        if not meal_plan or len(meal_plan) == 0:
+            return create_error_response(400, "Meal plan cannot be empty.")
+        
+        # Generate grocery list
+        grocery_list = generate_grocery_list(meal_plan, pantry_ingredients)
         
         return {
             "statusCode": 200,
-            "headers": {
-                "Content-Type": "application/json"
-            },
+            "headers": get_cors_headers(),
             "body": json.dumps({"grocery_list": grocery_list})
         }
 
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON decode error: {e}")
+        return create_error_response(400, f"Invalid JSON format: {str(e)}")
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
+        print(f"💥 Unexpected error: {e}")
+        return create_error_response(500, f"Internal server error: {str(e)}")
+
+def create_error_response(status_code, message):
+    """Create a standardized error response with CORS headers."""
+    return {
+        "statusCode": status_code,
+        "headers": get_cors_headers(),
+        "body": json.dumps({"error": message})
+    }
+
+def get_cors_headers():
+    """Get comprehensive CORS headers."""
+    return {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization, X-Requested-With",
+        "Access-Control-Max-Age": "86400"
+    }
+
+def generate_grocery_list(meal_plan, pantry_ingredients):
+    """Generate consolidated grocery list from meal plan."""
+    
+    print("🛒 Generating grocery list...")
+    
+    # Convert pantry ingredients to lowercase for comparison
+    pantry_set = set(ingredient.lower().strip() for ingredient in pantry_ingredients)
+    print(f"🥫 Pantry set: {pantry_set}")
+    
+    # Dictionary to consolidate ingredients
+    consolidated_ingredients = {}
+    
+    # Process each recipe in the meal plan
+    for recipe in meal_plan:
+        recipe_name = recipe.get('recipe_name', 'Unknown Recipe')
+        ingredients = recipe.get('ingredients', [])
+        
+        print(f"📝 Processing recipe: {recipe_name}")
+        
+        for ingredient in ingredients:
+            ingredient_name = ingredient.get('name', '').lower().strip()
+            ingredient_quantity = ingredient.get('quantity', 'as needed')
+            
+            # Skip if ingredient is in pantry
+            if ingredient_name in pantry_set:
+                print(f"⏭️ Skipping {ingredient_name} (in pantry)")
+                continue
+            
+            # Consolidate quantities
+            if ingredient_name in consolidated_ingredients:
+                # Simple consolidation - combine quantities
+                existing_quantity = consolidated_ingredients[ingredient_name]
+                consolidated_ingredients[ingredient_name] = f"{existing_quantity}, {ingredient_quantity}"
+            else:
+                consolidated_ingredients[ingredient_name] = ingredient_quantity
+    
+    # Convert to list format
+    grocery_list = [
+        {
+            "name": name.title(),
+            "quantity": quantity
         }
+        for name, quantity in consolidated_ingredients.items()
+    ]
+    
+    print(f"✅ Generated grocery list with {len(grocery_list)} items")
+    return grocery_list
