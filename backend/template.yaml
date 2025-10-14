@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SmartMeal AI Meal & Grocery Planner
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 512
+  Api:
+    Cors:
+      AllowMethods: "'POST, GET, OPTIONS'"
+      AllowHeaders: "'Content-Type, Accept'"
+      AllowOrigin: "'*'"
+
+Resources:
+  # Explicit API Gateway definition
+  SmartMealApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowMethods: "'POST, GET, OPTIONS'"
+        AllowHeaders: "'Content-Type, Accept'"
+        AllowOrigin: "'*'"
+
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SmartMeal-Users
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  RecipesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SmartMeal-Recipes
+      AttributeDefinitions:
+        - AttributeName: recipe_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: recipe_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  PantryItemsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SmartMeal-PantryItems
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: item_name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: item_name
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  # Lambda Functions with API Events
+  MealPlannerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/meal_planner/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Policies:
+        - AmazonBedrockFullAccess
+      Environment:
+        Variables:
+          MODEL_ID: anthropic.claude-3-haiku-20240307-v1:0
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /recipes
+            Method: post
+            RestApiId: !Ref SmartMealApi
+
+  GroceryListFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/grocery_list/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /grocery-list
+            Method: post
+            RestApiId: !Ref SmartMealApi
+        OptionsEvent:
+          Type: Api
+          Properties:
+            Path: /grocery-list
+            Method: options
+            RestApiId: !Ref SmartMealApi
+      
+
+Outputs:
+  MealPlannerFunctionArn:
+    Description: "Meal Planner Lambda Function ARN"
+    Value: !GetAtt MealPlannerFunction.Arn
+
+  GroceryListFunctionArn:
+    Description: "Grocery List Lambda Function ARN"
+    Value: !GetAtt GroceryListFunction.Arn
+
+  SmartMealApiEndpoint:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${SmartMealApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
