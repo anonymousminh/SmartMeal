@@ -107,47 +107,39 @@ function App() {
     }
   };
 
-  // New function for weekly planning (placeholder for now)
+  // Function for weekly planning
   const generateWeeklyPlan = async (preferences) => {
     setLoading(true);
     setError(null);
+    setWeeklyPlan(null); // Clear previous plan
     
     try {
-      // TODO: This will be implemented in Day 11
-      // For now, we'll create a mock response
-      console.log('Weekly plan preferences:', preferences);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock weekly plan data
-      const mockWeeklyPlan = {
-        weekly_plan: {
-          monday: {
-            breakfast: { recipe_name: 'Oatmeal with Berries', ingredients: [], instructions: [] },
-            lunch: { recipe_name: 'Grilled Chicken Salad', ingredients: [], instructions: [] },
-            dinner: { recipe_name: 'Salmon with Quinoa', ingredients: [], instructions: [] }
-          },
-          // ... other days would be here
+      console.log('📤 Sending weekly plan preferences:', preferences);
+
+      const response = await fetch(`${API_BASE_URL}/weekly-plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        budget_summary: {
-          estimated_total_cost: `$${preferences.budget - 10}`,
-          within_budget: true
-        },
-        nutrition_summary: {
-          total_calories_per_day: 2000,
-          protein_grams_per_day: 150
-        },
-        consolidated_grocery_list: [
-          { name: 'Chicken Breast', quantity: '2 lbs' },
-          { name: 'Salmon Fillet', quantity: '1 lb' },
-          { name: 'Mixed Greens', quantity: '2 bags' }
-        ]
-      };
-      
-      setWeeklyPlan(mockWeeklyPlan);
-      setError('✅ Weekly meal plan generated! (Mock data - full implementation coming in Day 11)');
-      
+        body: JSON.stringify(preferences),
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Received weekly plan:', data);
+
+      if (data.weekly_plan) {
+        setWeeklyPlan(data);
+        setError('✅ Your 7-day meal plan is ready!');
+      } else {
+        throw new Error('Invalid response format from AI. Please try again.');
+      }
+
     } catch (err) {
       console.error('Error generating weekly plan:', err);
       setError(`❌ Failed to generate weekly plan: ${err.message}`);
