@@ -22,6 +22,11 @@ Resources:
         AllowMethods: "'POST, GET, OPTIONS'"
         AllowHeaders: "'Content-Type, Accept'"
         AllowOrigin: "'*'"
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: 1000
+          ThrottlingBurstLimit: 2000
 
   # DynamoDB Tables
   UsersTable:
@@ -105,6 +110,32 @@ Resources:
           Type: Api
           Properties:
             Path: /grocery-list
+            Method: options
+            RestApiId: !Ref SmartMealApi
+
+  WeeklyMealPlannerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/weekly_meal_planner/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Timeout: 300
+      MemorySize: 1024
+      Policies:
+        - AmazonBedrockFullAccess
+      Events: 
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /weekly-plan
+            Method: post
+            RestApiId: !Ref SmartMealApi
+        OptionsEvent:
+          Type: Api
+          Properties:
+            Path: /weekly-plan
             Method: options
             RestApiId: !Ref SmartMealApi
       
