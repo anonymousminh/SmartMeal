@@ -1,4 +1,5 @@
 import json
+from unittest import skip
 import boto3
 from botocore.exceptions import ClientError
 
@@ -35,13 +36,13 @@ def lambda_handler(event, context):
         if not meal_plan or len(meal_plan) == 0:
             return create_error_response(400, "Meal plan cannot be empty.")
         
-        # Generate grocery list
-        grocery_list = generate_grocery_list(meal_plan, pantry_ingredients)
+        # Generate grocery list (returns dict with grocery_list and summary)
+        result = generate_grocery_list(meal_plan, pantry_ingredients)
         
         return {
             "statusCode": 200,
             "headers": get_cors_headers(),
-            "body": json.dumps({"grocery_list": grocery_list})
+            "body": json.dumps(result)
         }
 
     except json.JSONDecodeError as e:
@@ -80,6 +81,8 @@ def generate_grocery_list(meal_plan, pantry_ingredients):
     
     # Dictionary to consolidate ingredients
     consolidated_ingredients = {}
+    total_recipe_ingredients = 0
+    skipped_ingredients = []
     
     # Process each recipe in the meal plan
     for recipe in meal_plan:
@@ -91,10 +94,16 @@ def generate_grocery_list(meal_plan, pantry_ingredients):
         for ingredient in ingredients:
             ingredient_name = ingredient.get('name', '').lower().strip()
             ingredient_quantity = ingredient.get('quantity', 'as needed')
+            total_recipe_ingredients += 1
             
             # Skip if ingredient is in pantry
             if ingredient_name in pantry_set:
                 print(f"⏭️ Skipping {ingredient_name} (in pantry)")
+                skipped_ingredients.append({
+                    "name": ingredient_name.title(),
+                    "quantity": ingredient_quantity,
+                    "reason": "already in pantry"
+                })
                 continue
             
             # Consolidate quantities
@@ -113,6 +122,19 @@ def generate_grocery_list(meal_plan, pantry_ingredients):
         }
         for name, quantity in consolidated_ingredients.items()
     ]
+
+    # Create response with metadata
+    response = {
+        "grocery_list": grocery_list,
+        "summary": {
+            "total_items_needed": len(grocery_list),
+            "total_recipe_ingredients": total_recipe_ingredients,
+            "items_already_available": skipped_ingredients,
+            "items_already_available_count": len(skipped_ingredients),
+            "is_empty": len(grocery_list) == 0
+        }
+    }
     
     print(f"✅ Generated grocery list with {len(grocery_list)} items")
-    return grocery_list
+    print(f"📊 Summary: {response['summary']}")
+    return response
