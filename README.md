@@ -2,7 +2,7 @@
 
 SmartMeal is an **AI agent** meal and grocery planner built for the **AWS AI Agent Global Hackathon**. It suggests recipes from your ingredients, generates step-by-step cooking instructions, and creates consolidated grocery lists wi ness. The app includes:
 
-- **Agent path (recommended for the hackathon):** An **Amazon Bedrock AgentCore** agent using **Strands Agents** and tools (recipe suggestions, weekly meal plan, grocery list). Deploy with the AgentCore starter toolkit and invoke via API Gateway `/agent`.
+- **Agent path:** An **Amazon Bedrock AgentCore** agent using **Strands Agents** and tools (recipe suggestions, weekly meal plan, grocery list). Deploy with the AgentCore starter toolkit and invoke via API Gateway `/agent`.
 - **Lambda path:** Existing Lambdas that call Bedrock directly (`invoke_model`) for `/recipes`, `/weekly-plan`, and `/grocery-list`—no agent orchestration.
 
 ## Features
