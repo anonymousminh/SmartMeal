@@ -138,7 +138,40 @@ Resources:
             Path: /weekly-plan
             Method: options
             RestApiId: !Ref SmartMealApi
-      
+
+  # Invokes SmartMeal agent in Bedrock AgentCore Runtime. Set AGENT_RUNTIME_ARN after agentcore deploy.
+  AgentInvokerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_functions/agent_invoker/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+        - x86_64
+      Timeout: 120
+      MemorySize: 256
+      Environment:
+        Variables:
+          AGENT_RUNTIME_ARN: ""   # Set to your agent runtime ARN after: agentcore deploy
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: bedrock-agentcore:InvokeAgentRuntime
+              Resource: "*"
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /agent
+            Method: post
+            RestApiId: !Ref SmartMealApi
+        OptionsEvent:
+          Type: Api
+          Properties:
+            Path: /agent
+            Method: options
+            RestApiId: !Ref SmartMealApi
 
 Outputs:
   MealPlannerFunctionArn:
@@ -152,3 +185,7 @@ Outputs:
   SmartMealApiEndpoint:
     Description: "API Gateway endpoint URL for Prod stage"
     Value: !Sub "https://${SmartMealApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
+  AgentInvokerFunctionArn:
+    Description: "Agent Invoker Lambda (set AGENT_RUNTIME_ARN after agentcore deploy)"
+    Value: !GetAtt AgentInvokerFunction.Arn
